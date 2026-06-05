@@ -86,7 +86,7 @@ export class GooglePipeline {
       .upsert({
         location_id: locationId,
         source: 'google',
-        source_review_id: gReview.reviewId,
+        source_review_id: gReview.name,
         author_name: gReview.reviewer.displayName,
         rating: GoogleBusinessService.parseStarRating(gReview.starRating),
         content: gReview.comment,

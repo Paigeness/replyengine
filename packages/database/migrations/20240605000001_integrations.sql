@@ -26,5 +26,7 @@ CREATE POLICY "Members can update their integrations" ON integrations
     organization_id IN (SELECT organization_id FROM users WHERE users.id = auth.uid())
   );
 
--- Add google_business_location_id to locations
+-- Add integration IDs to locations
 ALTER TABLE locations ADD COLUMN google_business_location_id TEXT;
+ALTER TABLE locations ADD COLUMN yelp_business_id TEXT;
+ALTER TABLE locations ADD COLUMN tripadvisor_location_id TEXT;

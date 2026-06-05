@@ -1,0 +1,20 @@
+{
+  "name": "tripadvisor",
+  "version": "1.0.0",
+  "description": "TripAdvisor integration for ReplyEngine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
+    "axios": "^1.6.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0"
+  }
+}

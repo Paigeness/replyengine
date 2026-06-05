@@ -1,0 +1,22 @@
+{
+  "name": "automation",
+  "version": "1.0.0",
+  "description": "Automation orchestrator for ReplyEngine",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/scripts/orchestrator.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
+    "ai-engine": "workspace:*",
+    "google-business-profile": "workspace:*",
+    "yelp-fusion": "workspace:*",
+    "tripadvisor": "workspace:*",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "ts-node": "^10.9.2",
+    "@types/node": "^25.9.1"
+  }
+}
