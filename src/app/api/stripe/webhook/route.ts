@@ -51,9 +51,9 @@ export async function POST(request: Request) {
               organization_id: org.id,
               stripe_subscription_id: subscription.id,
               status: subscription.status,
-              plan: (subscription.metadata?.plan as any) || 'starter',
-              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+              plan: ((subscription as any).metadata?.plan as string) || 'starter',
+              current_period_start: new Date((subscription as any).current_period_start * 1000).toISOString(),
+              current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
             }, { onConflict: 'stripe_subscription_id' });
         }
         break;
