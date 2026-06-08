@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GooglePipeline, GooglePostingPipeline } from 'google-business-profile';
-import { YelpPipeline } from 'yelp-fusion';
-import { TripAdvisorPipeline } from 'tripadvisor';
-import { ResponsePipeline } from 'ai-engine';
+import { GooglePipeline } from '../../../../../packages/google-business-profile/src/services/pipeline';
+import { YelpPipeline } from '../../../../../packages/yelp-fusion/src/services/pipeline';
+import { ResponsePipeline } from '../../../../../packages/ai-engine/src/services/pipeline';
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -14,30 +13,22 @@ export async function GET(request: NextRequest) {
   const startTime = new Date();
 
   try {
-    // 1. Sync Reviews from Google
-    console.log('\n[1/5] Syncing Google reviews...');
+    console.log('\n[1/4] Syncing Google reviews...');
     const googleSync = new GooglePipeline();
     await googleSync.syncAllReviews();
 
-    // 2. Sync Reviews from Yelp
-    console.log('\n[2/5] Syncing Yelp reviews...');
+    console.log('\n[2/4] Syncing Yelp reviews...');
     const yelpSync = new YelpPipeline();
     await yelpSync.syncAllReviews();
 
-    // 3. Sync Reviews from TripAdvisor
-    console.log('\n[3/5] Syncing TripAdvisor reviews...');
-    const taSync = new TripAdvisorPipeline();
-    await taSync.syncAllReviews();
-
-    // 4. Generate AI Responses for pending reviews
-    console.log('\n[4/5] Generating AI responses...');
+    console.log('\n[3/4] Generating AI responses...');
     const responsePipeline = new ResponsePipeline();
     await responsePipeline.processPendingReviews();
 
-    // 5. Post approved responses to Google
-    console.log('\n[5/5] Posting approved responses to Google...');
-    const googlePosting = new GooglePostingPipeline();
-    await googlePosting.postApprovedResponses();
+    console.log('\n[4/4] Posting approved responses to Google...');
+    const { GooglePostingService } = await import('../../../../../packages/google-business-profile/src/services/posting');
+    const posting = new GooglePostingService();
+    await posting.postAll();
 
     const endTime = new Date();
     const duration = (endTime.getTime() - startTime.getTime()) / 1000;
