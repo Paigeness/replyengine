@@ -26,4 +26,11 @@ const BreadcrumbPage = React.forwardRef<HTMLSpanElement, React.HTMLAttributes<HT
 ))
 BreadcrumbPage.displayName = "BreadcrumbPage"
 
-export { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage }
+export { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator }
+
+const BreadcrumbSeparator = React.forwardRef<HTMLSpanElement, React.HTMLAttributes<HTMLSpanElement>>(({ className, ...props }, ref) => (
+  <span ref={ref} role="presentation" aria-hidden="true" className={cn("[&>svg]:w-3.5 [&>svg]:h-3.5", className)} {...props}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6"/></svg>
+  </span>
+))
+BreadcrumbSeparator.displayName = "BreadcrumbSeparator"
