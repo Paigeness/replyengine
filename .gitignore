@@ -6,4 +6,5 @@ node_modules/
 *.log
 dist/
 build/
-.turbo/
+.turbo/pnpm-lock.yaml
+pnpm-workspace.yaml
