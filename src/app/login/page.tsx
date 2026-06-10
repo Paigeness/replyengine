@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -14,7 +14,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await getSupabase().auth.signInWithPassword({ email, password })
     if (error) alert(error.message)
     else window.location.href = '/dashboard'
     setLoading(false)
@@ -22,7 +22,7 @@ export default function LoginPage() {
 
   const handleMagicLink = async () => {
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({ 
+    const { error } = await getSupabase().auth.signInWithOtp({ 
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
