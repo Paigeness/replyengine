@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     switch (event.type) {
       case 'checkout.session.completed':
         if (session.metadata?.organizationId) {
-          await supabaseAdmin
+          await getAdmin()
             .from('organizations')
             .update({ stripe_customer_id: session.customer as string })
             .eq('id', session.metadata.organizationId);
@@ -39,14 +39,14 @@ export async function POST(request: Request) {
         const subscription = event.data.object as any;
         
         // Find organization by stripe_customer_id
-        const { data: org } = await supabaseAdmin
+        const { data: org } = await getAdmin()
           .from('organizations')
           .select('id')
           .eq('stripe_customer_id', subscription.customer as string)
           .single();
 
         if (org) {
-          await supabaseAdmin
+          await getAdmin()
             .from('subscriptions')
             .upsert({
               organization_id: org.id,
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
       case 'customer.subscription.deleted':
         const deletedSub = event.data.object as any;
-        await supabaseAdmin
+        await getAdmin()
           .from('subscriptions')
           .update({ status: 'canceled' })
           .eq('stripe_subscription_id', deletedSub.id);
@@ -69,14 +69,14 @@ export async function POST(request: Request) {
 
       case 'invoice.paid':
         const invoice = event.data.object as Stripe.Invoice;
-        const { data: invoiceOrg } = await supabaseAdmin
+        const { data: invoiceOrg } = await getAdmin()
           .from('organizations')
           .select('id')
           .eq('stripe_customer_id', invoice.customer as string)
           .single();
 
         if (invoiceOrg) {
-          await supabaseAdmin
+          await getAdmin()
             .from('billing_history')
             .insert({
               organization_id: invoiceOrg.id,
@@ -90,14 +90,14 @@ export async function POST(request: Request) {
 
       case 'invoice.payment_failed':
         const failedInvoice = event.data.object as Stripe.Invoice;
-        const { data: failedInvoiceOrg } = await supabaseAdmin
+        const { data: failedInvoiceOrg } = await getAdmin()
           .from('organizations')
           .select('id')
           .eq('stripe_customer_id', failedInvoice.customer as string)
           .single();
 
         if (failedInvoiceOrg) {
-          await supabaseAdmin
+          await getAdmin()
             .from('billing_history')
             .insert({
               organization_id: failedInvoiceOrg.id,
