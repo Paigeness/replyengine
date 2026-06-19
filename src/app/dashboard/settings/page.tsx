@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -17,13 +18,44 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { getSupabase } from "@/lib/supabase"
 
 export default function SettingsPage() {
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchUserOrg = async () => {
+      const supabase = getSupabase()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+        
+        if (data) {
+          setOrganizationId(data.organization_id)
+        }
+      }
+    }
+    fetchUserOrg()
+  }, [])
+
   const handleGoogleConnect = () => {
+    if (!organizationId) {
+      alert("Organization not found. Please try again.")
+      return
+    }
+
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '139079306339-59t9oqg7r1jugum8s8me2uada0i8oefe.apps.googleusercontent.com'
-    const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || 'https://replyengine-vt49.vercel.app/api/auth/google/callback'
+    const redirectUri = typeof window !== 'undefined' 
+      ? `${window.location.origin}/api/auth/google/callback`
+      : process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || 'https://replyengine.net/api/auth/google/callback'
+    
     const scope = 'https://www.googleapis.com/auth/business.manage'
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`
+    const state = organizationId
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`
     window.location.href = url
   }
 
@@ -62,7 +94,7 @@ export default function SettingsPage() {
             </CardFooter>
           </Card>
         </TabsContent>
-        <TabsContent value="integrations">
+        <TabsContent value="integrations" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Google Business Profile</CardTitle>
@@ -73,6 +105,36 @@ export default function SettingsPage() {
             </CardContent>
             <CardFooter>
               <Button onClick={handleGoogleConnect}>Connect Google Business Profile</Button>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Yelp Integration</CardTitle>
+              <CardDescription>Connect your Yelp business page to monitor reviews. Since Yelp does not allow third-party replies, we will notify you by email when new reviews arrive.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <Label htmlFor="yelp-id">Yelp Business ID or URL</Label>
+                <Input id="yelp-id" placeholder="e.g., acme-coffee-roasters-anytown" />
+                <p className="text-xs text-muted-foreground">You can find this in your Yelp business page URL (e.g., yelp.com/biz/<b>your-business-id</b>).</p>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button>Connect Yelp</Button>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>TripAdvisor Integration</CardTitle>
+              <CardDescription>Connect your TripAdvisor page to monitor reviews.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">TripAdvisor integration is coming soon.</p>
+            </CardContent>
+            <CardFooter>
+              <Button disabled>Coming Soon</Button>
             </CardFooter>
           </Card>
         </TabsContent>
