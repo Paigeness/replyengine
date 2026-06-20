@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -26,20 +25,23 @@ import { Badge } from "@/components/ui/badge"
 
 export default function SettingsPage() {
   const [organizationId, setOrganizationId] = useState<string | null>(null)
-  const [integrations, setIntegrations] = useState<{source: string}[]>([])
+  const [integrations, setIntegrations] = useState<{source: string, created_at: string}[]>([])
+  const [yelpBusinessId, setYelpBusinessId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const searchParams = useSearchParams()
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  
 
   useEffect(() => {
-    const success = searchParams.get('success')
-    const error = searchParams.get('error')
+    const success = new URLSearchParams(window.location.search).get('success')
+    const error = new URLSearchParams(window.location.search).get('error')
 
     if (success === 'google_connected') {
       toast.success("Google Business Profile connected successfully!")
     } else if (error) {
+      setErrorMessage(`Connection failed: ${error.replace('_', ' ')}`)
       toast.error(`Connection failed: ${error.replace('_', ' ')}`)
     }
-  }, [searchParams])
+  }, [])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,13 +59,26 @@ export default function SettingsPage() {
         if (userData?.organization_id) {
           setOrganizationId(userData.organization_id)
           
+          // Fetch integrations
           const { data: integrationData } = await supabase
             .from('integrations')
-            .select('source')
+            .select('source, created_at')
             .eq('organization_id', userData.organization_id)
           
           if (integrationData) {
             setIntegrations(integrationData)
+          }
+
+          // Fetch Yelp ID from locations
+          const { data: locationData } = await supabase
+            .from('locations')
+            .select('yelp_business_id')
+            .eq('organization_id', userData.organization_id)
+            .limit(1)
+            .single()
+          
+          if (locationData?.yelp_business_id) {
+            setYelpBusinessId(locationData.yelp_business_id)
           }
         }
       }
@@ -73,7 +88,14 @@ export default function SettingsPage() {
   }, [])
 
   const isConnected = (source: string) => {
+    if (source === 'yelp') return !!yelpBusinessId || integrations.some(i => i.source === 'yelp')
     return integrations.some(i => i.source === source)
+  }
+
+  const getConnectedDate = (source: string) => {
+    const integration = integrations.find(i => i.source === source)
+    if (!integration) return null
+    return new Date(integration.created_at).toLocaleDateString()
   }
 
   const handleGoogleConnect = () => {
@@ -93,12 +115,52 @@ export default function SettingsPage() {
     window.location.href = url
   }
 
+  const handleDisconnect = async (source: string) => {
+    if (!organizationId) return
+    
+    const supabase = getSupabase()
+    
+    if (source === 'yelp' && yelpBusinessId) {
+      const { error } = await supabase
+        .from('locations')
+        .update({ yelp_business_id: null })
+        .eq('organization_id', organizationId)
+      
+      if (error) {
+        toast.error(`Failed to disconnect Yelp: ${error.message}`)
+        return
+      }
+      setYelpBusinessId(null)
+    }
+
+    const { error } = await supabase
+      .from('integrations')
+      .delete()
+      .eq('organization_id', organizationId)
+      .eq('source', source)
+    
+    if (error) {
+      toast.error(`Failed to disconnect ${source}: ${error.message}`)
+    } else {
+      toast.success(`${source.charAt(0).toUpperCase() + source.slice(1)} disconnected.`)
+      setIntegrations(prev => prev.filter(i => i.source !== source))
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
         {loading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
       </div>
+
+      {errorMessage && (
+        <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-md flex items-center gap-3">
+          <AlertCircle className="h-5 w-5" />
+          <p className="text-sm font-medium">{errorMessage}</p>
+          <Button variant="ghost" size="sm" className="ml-auto h-8 hover:bg-destructive/20" onClick={() => setErrorMessage(null)}>Dismiss</Button>
+        </div>
+      )}
       
       <Tabs defaultValue="general" className="w-full">
         <TabsList>
@@ -141,7 +203,7 @@ export default function SettingsPage() {
                   Google Business Profile
                   {isConnected('google') ? (
                     <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
-                      <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Connected ✓ {getConnectedDate('google')}
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="text-muted-foreground">Not Connected</Badge>
@@ -159,13 +221,21 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground mb-4">Click the button below to authorize ReplyEngine to manage your Google Business Profile reviews.</p>
               )}
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex gap-3">
               <Button 
                 onClick={handleGoogleConnect} 
                 variant={isConnected('google') ? "outline" : "default"}
               >
                 {isConnected('google') ? "Reconnect Google Account" : "Connect Google Business Profile"}
               </Button>
+              {isConnected('google') && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => handleDisconnect('google')}
+                >
+                  Disconnect
+                </Button>
+              )}
             </CardFooter>
           </Card>
 
@@ -176,7 +246,7 @@ export default function SettingsPage() {
                   Yelp Integration
                   {isConnected('yelp') ? (
                     <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
-                      <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Connected ✓ {getConnectedDate('yelp')}
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="text-muted-foreground">Not Connected</Badge>
@@ -200,10 +270,18 @@ export default function SettingsPage() {
                 </>
               )}
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex gap-3">
               <Button variant={isConnected('yelp') ? "outline" : "default"}>
                 {isConnected('yelp') ? "Update Yelp ID" : "Connect Yelp"}
               </Button>
+              {isConnected('yelp') && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => handleDisconnect('yelp')}
+                >
+                  Disconnect
+                </Button>
+              )}
             </CardFooter>
           </Card>
 
