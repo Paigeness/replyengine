@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -19,32 +20,65 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { getSupabase } from "@/lib/supabase"
+import { toast } from "sonner"
+import { CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 export default function SettingsPage() {
   const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [integrations, setIntegrations] = useState<{source: string}[]>([])
+  const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const fetchUserOrg = async () => {
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+
+    if (success === 'google_connected') {
+      toast.success("Google Business Profile connected successfully!")
+    } else if (error) {
+      toast.error(`Connection failed: ${error.replace('_', ' ')}`)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
       const supabase = getSupabase()
       const { data: { user } } = await supabase.auth.getUser()
+      
       if (user) {
-        const { data } = await supabase
+        const { data: userData } = await supabase
           .from('users')
           .select('organization_id')
           .eq('id', user.id)
           .single()
         
-        if (data) {
-          setOrganizationId(data.organization_id)
+        if (userData?.organization_id) {
+          setOrganizationId(userData.organization_id)
+          
+          const { data: integrationData } = await supabase
+            .from('integrations')
+            .select('source')
+            .eq('organization_id', userData.organization_id)
+          
+          if (integrationData) {
+            setIntegrations(integrationData)
+          }
         }
       }
+      setLoading(false)
     }
-    fetchUserOrg()
+    fetchData()
   }, [])
+
+  const isConnected = (source: string) => {
+    return integrations.some(i => i.source === source)
+  }
 
   const handleGoogleConnect = () => {
     if (!organizationId) {
-      alert("Organization not found. Please try again.")
+      toast.error("Organization not found. Please try again.")
       return
     }
 
@@ -61,7 +95,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
+        {loading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+      </div>
+      
       <Tabs defaultValue="general" className="w-full">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
@@ -94,38 +132,82 @@ export default function SettingsPage() {
             </CardFooter>
           </Card>
         </TabsContent>
+        
         <TabsContent value="integrations" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Google Business Profile</CardTitle>
-              <CardDescription>Connect your Google Business Profile to automatically monitor and respond to reviews.</CardDescription>
+          <Card className={isConnected('google') ? "border-green-100 bg-green-50/10" : ""}>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div className="space-y-1.5">
+                <CardTitle className="flex items-center gap-2">
+                  Google Business Profile
+                  {isConnected('google') ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">Not Connected</Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>Connect your Google Business Profile to automatically monitor and respond to reviews.</CardDescription>
+              </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">Click the button below to authorize ReplyEngine to manage your Google Business Profile reviews.</p>
+              {isConnected('google') ? (
+                <p className="text-sm text-green-700 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" /> Your Google Business Profile is connected and active.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground mb-4">Click the button below to authorize ReplyEngine to manage your Google Business Profile reviews.</p>
+              )}
             </CardContent>
             <CardFooter>
-              <Button onClick={handleGoogleConnect}>Connect Google Business Profile</Button>
+              <Button 
+                onClick={handleGoogleConnect} 
+                variant={isConnected('google') ? "outline" : "default"}
+              >
+                {isConnected('google') ? "Reconnect Google Account" : "Connect Google Business Profile"}
+              </Button>
             </CardFooter>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Yelp Integration</CardTitle>
-              <CardDescription>Connect your Yelp business page to monitor reviews. Since Yelp does not allow third-party replies, we will notify you by email when new reviews arrive.</CardDescription>
+          <Card className={isConnected('yelp') ? "border-green-100 bg-green-50/10" : ""}>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div className="space-y-1.5">
+                <CardTitle className="flex items-center gap-2">
+                  Yelp Integration
+                  {isConnected('yelp') ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">Not Connected</Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>Connect your Yelp business page to monitor reviews.</CardDescription>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <Label htmlFor="yelp-id">Yelp Business ID or URL</Label>
-                <Input id="yelp-id" placeholder="e.g., acme-coffee-roasters-anytown" />
-                <p className="text-xs text-muted-foreground">You can find this in your Yelp business page URL (e.g., yelp.com/biz/<b>your-business-id</b>).</p>
-              </div>
+              {isConnected('yelp') ? (
+                <p className="text-sm text-green-700 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" /> Yelp is connected. We are monitoring your reviews.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <Label htmlFor="yelp-id">Yelp Business ID or URL</Label>
+                    <Input id="yelp-id" placeholder="e.g., acme-coffee-roasters-anytown" />
+                    <p className="text-xs text-muted-foreground">You can find this in your Yelp business page URL (e.g., yelp.com/biz/<b>your-business-id</b>).</p>
+                  </div>
+                </>
+              )}
             </CardContent>
             <CardFooter>
-              <Button>Connect Yelp</Button>
+              <Button variant={isConnected('yelp') ? "outline" : "default"}>
+                {isConnected('yelp') ? "Update Yelp ID" : "Connect Yelp"}
+              </Button>
             </CardFooter>
           </Card>
 
-          <Card>
+          <Card className="opacity-60">
             <CardHeader>
               <CardTitle>TripAdvisor Integration</CardTitle>
               <CardDescription>Connect your TripAdvisor page to monitor reviews.</CardDescription>
