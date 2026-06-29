@@ -12,6 +12,7 @@ import {
   Map,
   MessageSquare,
   PieChart,
+  Search,
   Settings2,
   SquareTerminal,
   Star,
@@ -50,6 +51,16 @@ const data = {
       title: "Response Log",
       url: "/dashboard/responses",
       icon: MessageSquare,
+    },
+    {
+      title: "Lead Finder",
+      url: "/dashboard/leads",
+      icon: Search,
+    },
+    {
+      title: "Cold Outreach",
+      url: "/dashboard/outreach",
+      icon: Users,
     },
     {
       title: "Settings",
