@@ -1,4 +1,6 @@
 "use client"
+import { useEffect, useState } from "react"
+import { getSupabase } from "@/lib/supabase"
 
 import * as React from "react"
 import {
@@ -29,10 +31,10 @@ import {
 } from "@/components/ui/sidebar"
 
 // This is sample data.
-const data = {
+const [userEmail, setUserEmail] = useState(""); useEffect(() => { getSupabase().auth.getUser().then(({ data }) => { if (data?.user) setUserEmail(data.user.email); }); }, []); const data = {
   user: {
     name: "ReplyEngine User",
-    email: "user@example.com",
+    email: userEmail,
     avatar: "/avatars/user.jpg",
   },
   navMain: [

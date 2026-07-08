@@ -28,8 +28,22 @@ export default function SettingsPage() {
   const [integrations, setIntegrations] = useState<{source: string, created_at: string}[]>([])
   const [yelpBusinessId, setYelpBusinessId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  
+
+  // Business profile state
+  const [businessName, setBusinessName] = useState("")
+  const [website, setWebsite] = useState("")
+  const [address, setAddress] = useState("")
+
+  // Tone state
+  const [tone, setTone] = useState("Professional & Friendly")
+  const [customInstructions, setCustomInstructions] = useState("")
+
+  // Notification state
+  const [emailNewReviews, setEmailNewReviews] = useState(true)
+  const [emailDailySummary, setEmailDailySummary] = useState(true)
+  const [emailWeeklyReport, setEmailWeeklyReport] = useState(false)
 
   useEffect(() => {
     const success = new URLSearchParams(window.location.search).get('success')
@@ -43,49 +57,137 @@ export default function SettingsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      const supabase = getSupabase()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        
-        if (userData?.organization_id) {
-          setOrganizationId(userData.organization_id)
-          
-          // Fetch integrations
-          const { data: integrationData } = await supabase
-            .from('integrations')
-            .select('source, created_at')
-            .eq('organization_id', userData.organization_id)
-          
-          if (integrationData) {
-            setIntegrations(integrationData)
-          }
-
-          // Fetch Yelp ID from locations
-          const { data: locationData } = await supabase
-            .from('locations')
-            .select('yelp_business_id')
-            .eq('organization_id', userData.organization_id)
-            .limit(1)
-            .single()
-          
-          if (locationData?.yelp_business_id) {
-            setYelpBusinessId(locationData.yelp_business_id)
-          }
-        }
-      }
+  const loadSettings = async () => {
+    setLoading(true)
+    const supabase = getSupabase()
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
       setLoading(false)
+      return
     }
-    fetchData()
+
+    try {
+      const res = await fetch('/api/settings/profile', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setOrganizationId(data.organizationId)
+        setBusinessName(data.name || "")
+        setWebsite(data.website || "")
+        setAddress(data.address || "")
+        setTone(data.tone || "Professional & Friendly")
+        setCustomInstructions(data.customInstructions || "")
+        setEmailNewReviews(data.emailNewReviews ?? true)
+        setEmailDailySummary(data.emailDailySummary ?? true)
+        setEmailWeeklyReport(data.emailWeeklyReport ?? false)
+      }
+
+      // Also load integration status
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', session.user.id)
+        .single()
+
+      if (userData?.organization_id) {
+        const { data: integrationData } = await supabase
+          .from('integrations')
+          .select('source, created_at')
+          .eq('organization_id', userData.organization_id)
+        if (integrationData) setIntegrations(integrationData)
+      }
+    } catch (err) {
+      console.error('Load error:', err)
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadSettings()
   }, [])
+
+  const saveBusinessProfile = async () => {
+    setSaving(true)
+    const supabase = getSupabase()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const res = await fetch('/api/settings/profile', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: businessName,
+        website,
+        address
+      })
+    })
+
+    if (res.ok) {
+      toast.success("Business profile saved!")
+      loadSettings()
+    } else {
+      const err = await res.json()
+      toast.error(err.error || "Failed to save")
+    }
+    setSaving(false)
+  }
+
+  const saveTone = async () => {
+    setSaving(true)
+    const supabase = getSupabase()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const res = await fetch('/api/settings/profile', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ tone, customInstructions })
+    })
+
+    if (res.ok) {
+      toast.success("Response tone saved!")
+    } else {
+      const err = await res.json()
+      toast.error(err.error || "Failed to save")
+    }
+    setSaving(false)
+  }
+
+  const saveNotifications = async () => {
+    setSaving(true)
+    const supabase = getSupabase()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const res = await fetch('/api/settings/profile', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        emailNewReviews,
+        emailDailySummary,
+        emailWeeklyReport
+      })
+    })
+
+    if (res.ok) {
+      toast.success("Notification preferences saved!")
+    } else {
+      const err = await res.json()
+      toast.error(err.error || "Failed to save")
+    }
+    setSaving(false)
+  }
 
   const isConnected = (source: string) => {
     if (source === 'yelp') return !!yelpBusinessId || integrations.some(i => i.source === 'yelp')
@@ -169,6 +271,7 @@ export default function SettingsPage() {
           <TabsTrigger value="tone">Response Tone</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
+        
         <TabsContent value="general">
           <Card>
             <CardHeader>
@@ -178,19 +281,21 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-1">
                 <Label htmlFor="name">Business Name</Label>
-                <Input id="name" defaultValue="Acme Coffee Roasters" />
+                <Input id="name" value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Your business name" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="website">Website</Label>
-                <Input id="website" defaultValue="https://acmecoffee.com" />
+                <Input id="website" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://yourwebsite.com" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="address">Address</Label>
-                <Input id="address" defaultValue="123 Main St, Anytown, USA" />
+                <Input id="address" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, State" />
               </div>
             </CardContent>
             <CardFooter>
-              <Button>Save Changes</Button>
+              <Button onClick={saveBusinessProfile} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -255,25 +360,16 @@ export default function SettingsPage() {
                 <CardDescription>Connect your Yelp business page to monitor reviews.</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               {isConnected('yelp') ? (
                 <p className="text-sm text-green-700 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4" /> Yelp is connected. We are monitoring your reviews.
                 </p>
               ) : (
-                <>
-                  <div className="space-y-1">
-                    <Label htmlFor="yelp-id">Yelp Business ID or URL</Label>
-                    <Input id="yelp-id" placeholder="e.g., acme-coffee-roasters-anytown" />
-                    <p className="text-xs text-muted-foreground">You can find this in your Yelp business page URL (e.g., yelp.com/biz/<b>your-business-id</b>).</p>
-                  </div>
-                </>
+                <p className="text-sm text-muted-foreground mb-4">Yelp API connection requires a Yelp Fusion API key from yelp.com/developers. Once you have one, set it as the YELP_API_KEY environment variable.</p>
               )}
             </CardContent>
             <CardFooter className="flex gap-3">
-              <Button variant={isConnected('yelp') ? "outline" : "default"}>
-                {isConnected('yelp') ? "Update Yelp ID" : "Connect Yelp"}
-              </Button>
               {isConnected('yelp') && (
                 <Button 
                   variant="destructive" 
@@ -298,6 +394,7 @@ export default function SettingsPage() {
             </CardFooter>
           </Card>
         </TabsContent>
+        
         <TabsContent value="tone">
           <Card>
             <CardHeader>
@@ -307,23 +404,37 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-1">
                 <Label htmlFor="tone">Primary Tone</Label>
-                <select id="tone" className="w-full p-2 border rounded-md">
-                  <option>Professional & Friendly</option>
-                  <option>Casual & Energetic</option>
-                  <option>Formal & Concise</option>
-                  <option>Empathetic & Warm</option>
+                <select 
+                  id="tone" 
+                  className="w-full p-2 border rounded-md bg-background"
+                  value={tone}
+                  onChange={e => setTone(e.target.value)}
+                >
+                  <option value="Professional & Friendly">Professional & Friendly</option>
+                  <option value="Casual & Energetic">Casual & Energetic</option>
+                  <option value="Formal & Concise">Formal & Concise</option>
+                  <option value="Empathetic & Warm">Empathetic & Warm</option>
                 </select>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="custom">Custom Instructions (Optional)</Label>
-                <textarea id="custom" className="w-full p-2 border rounded-md h-32" placeholder="E.g., Always mention our weekly specials or invite them to join our loyalty program." />
+                <textarea 
+                  id="custom" 
+                  className="w-full min-h-[128px] p-2 border rounded-md" 
+                  placeholder="E.g., Always mention our weekly specials or invite them to join our loyalty program."
+                  value={customInstructions}
+                  onChange={e => setCustomInstructions(e.target.value)}
+                />
               </div>
             </CardContent>
             <CardFooter>
-              <Button>Save Tone</Button>
+              <Button onClick={saveTone} disabled={saving}>
+                {saving ? "Saving..." : "Save Tone"}
+              </Button>
             </CardFooter>
           </Card>
         </TabsContent>
+        
         <TabsContent value="notifications">
           <Card>
             <CardHeader>
@@ -333,19 +444,21 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="email-new">New Review Alerts</Label>
-                <input type="checkbox" id="email-new" defaultChecked />
+                <input type="checkbox" id="email-new" checked={emailNewReviews} onChange={e => setEmailNewReviews(e.target.checked)} />
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="email-daily">Daily Summary Report</Label>
-                <input type="checkbox" id="email-daily" defaultChecked />
+                <input type="checkbox" id="email-daily" checked={emailDailySummary} onChange={e => setEmailDailySummary(e.target.checked)} />
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="email-weekly">Weekly Insight Report</Label>
-                <input type="checkbox" id="email-weekly" />
+                <input type="checkbox" id="email-weekly" checked={emailWeeklyReport} onChange={e => setEmailWeeklyReport(e.target.checked)} />
               </div>
             </CardContent>
             <CardFooter>
-              <Button>Save Preferences</Button>
+              <Button onClick={saveNotifications} disabled={saving}>
+                {saving ? "Saving..." : "Save Preferences"}
+              </Button>
             </CardFooter>
           </Card>
         </TabsContent>
