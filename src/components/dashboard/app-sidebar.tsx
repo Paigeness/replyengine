@@ -31,62 +31,72 @@ import {
 } from "@/components/ui/sidebar"
 
 // This is sample data.
-const [userEmail, setUserEmail] = useState(""); useEffect(() => { getSupabase().auth.getUser().then(({ data }) => { if (data?.user) setUserEmail(data.user.email); }); }, []); const data = {
-  user: {
-    name: "ReplyEngine User",
-    email: userEmail,
-    avatar: "/avatars/user.jpg",
-  },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-      isActive: true,
-    },
-    {
-      title: "Reviews",
-      url: "/dashboard/reviews",
-      icon: Star,
-    },
-    {
-      title: "Response Log",
-      url: "/dashboard/responses",
-      icon: MessageSquare,
-    },
-    {
-      title: "Lead Finder",
-      url: "/dashboard/leads",
-      icon: Search,
-    },
-    {
-      title: "Cold Outreach",
-      url: "/dashboard/outreach",
-      icon: Users,
-    },
-    {
-      title: "Settings",
-      url: "/dashboard/settings",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "/dashboard/settings",
-        },
-        {
-          title: "Billing",
-          url: "/dashboard/settings/billing",
-        },
-        {
-          title: "Notifications",
-          url: "/dashboard/settings/notifications",
-        },
-      ],
-    },
-  ],
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [userEmail, setUserEmail] = useState("");
+  
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      if (data?.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    });
+  }, []);
+
+  const data = {
+    user: {
+      name: "ReplyEngine User",
+      email: userEmail,
+      avatar: "/avatars/user.jpg",
+    },
+    navMain: [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+        isActive: true,
+      },
+      {
+        title: "Reviews",
+        url: "/dashboard/reviews",
+        icon: Star,
+      },
+      {
+        title: "Response Log",
+        url: "/dashboard/responses",
+        icon: MessageSquare,
+      },
+      {
+        title: "Lead Finder",
+        url: "/dashboard/leads",
+        icon: Search,
+      },
+      {
+        title: "Cold Outreach",
+        url: "/dashboard/outreach",
+        icon: Users,
+      },
+      {
+        title: "Settings",
+        url: "/dashboard/settings",
+        icon: Settings2,
+        items: [
+          {
+            title: "General",
+            url: "/dashboard/settings",
+          },
+          {
+            title: "Billing",
+            url: "/dashboard/settings/billing",
+          },
+          {
+            title: "Notifications",
+            url: "/dashboard/settings/notifications",
+          },
+        ],
+      },
+    ],
+  }
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
