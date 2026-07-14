@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = 'force-dynamic'
+
+let _admin: ReturnType<typeof createClient> | null = null
+
+function getAdmin() {
+  if (!_admin) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) {
+      throw new Error('Supabase env vars not configured')
+    }
+    _admin = createClient(url, key)
+  }
+  return _admin
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,15 +24,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    // Verify the auth token and get the user
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    const supabase = getAdmin()
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's organization
-    const { data: userData } = await supabaseAdmin
+    const { data: userData } = await supabase
       .from('users')
       .select('organization_id, tone, custom_instructions, email_new_reviews, email_daily_summary, email_weekly_report')
       .eq('id', user.id)
@@ -31,8 +41,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Get organization details
-    const { data: org } = await supabaseAdmin
+    const { data: org } = await supabase
       .from('organizations')
       .select('name, website, address')
       .eq('id', userData.organization_id)
@@ -63,15 +72,15 @@ export async function PUT(req: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    const supabase = getAdmin()
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await req.json()
 
-    // Get user's organization
-    const { data: userData } = await supabaseAdmin
+    const { data: userData } = await supabase
       .from('users')
       .select('organization_id')
       .eq('id', user.id)
@@ -81,7 +90,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Update organization fields if provided
     if (body.name !== undefined || body.website !== undefined || body.address !== undefined) {
       const orgUpdate: any = {}
       if (body.name !== undefined) orgUpdate.name = body.name
@@ -89,7 +97,7 @@ export async function PUT(req: NextRequest) {
       if (body.address !== undefined) orgUpdate.address = body.address
       orgUpdate.updated_at = new Date().toISOString()
 
-      const { error: orgError } = await supabaseAdmin
+      const { error: orgError } = await supabase
         .from('organizations')
         .update(orgUpdate)
         .eq('id', userData.organization_id)
@@ -100,7 +108,6 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Update user preferences if provided
     const userUpdate: any = {}
     if (body.tone !== undefined) userUpdate.tone = body.tone
     if (body.customInstructions !== undefined) userUpdate.custom_instructions = body.customInstructions
@@ -109,7 +116,7 @@ export async function PUT(req: NextRequest) {
     if (body.emailWeeklyReport !== undefined) userUpdate.email_weekly_report = body.emailWeeklyReport
 
     if (Object.keys(userUpdate).length > 0) {
-      const { error: userUpdateError } = await supabaseAdmin
+      const { error: userUpdateError } = await supabase
         .from('users')
         .update(userUpdate)
         .eq('id', user.id)
