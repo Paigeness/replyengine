@@ -95,7 +95,6 @@ export async function PUT(req: NextRequest) {
       if (body.name !== undefined) orgUpdate.name = body.name
       if (body.website !== undefined) orgUpdate.website = body.website
       if (body.address !== undefined) orgUpdate.address = body.address
-      orgUpdate.updated_at = new Date().toISOString()
 
       const { error: orgError } = await supabase
         .from('organizations')
