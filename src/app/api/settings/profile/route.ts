@@ -129,6 +129,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error('Settings PUT error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Internal server error', detail: String(err) }, { status: 500 })
   }
 }
