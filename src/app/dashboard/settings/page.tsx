@@ -32,20 +32,29 @@ export default function SettingsPage() {
 
   const saveBusinessProfile = async () => {
     setMessage("")
-    const supabase = (await import("@/lib/supabase")).getSupabase()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { setMessage("Not signed in"); return }
+    try {
+      const supabase = (await import("@/lib/supabase")).getSupabase()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setMessage("Not signed in - try refreshing the page"); return }
 
-    const res = await fetch("/api/settings/profile", {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ name: businessName, website, address })
-    })
-    if (res.ok) {
-      setMessage("Business profile saved!")
-    } else {
-      const err = await res.json()
-      setMessage(err.error || "Failed to save")
+      const res = await fetch("/api/settings/profile", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: businessName, website, address })
+      })
+      if (res.ok) {
+        setMessage("Business profile saved!")
+      } else {
+        const text = await res.text()
+        try {
+          const err = JSON.parse(text)
+          setMessage(err.error || "Error: " + res.status)
+        } catch {
+          setMessage("Server error (" + res.status + "): " + text.substring(0, 200))
+        }
+      }
+    } catch (e: any) {
+      setMessage("Error: " + (e.message || "Unknown error"))
     }
   }
 
