@@ -28,14 +28,35 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userData } = await supabase
+    let { data: userData } = await supabase
       .from('users')
       .select('organization_id, tone, custom_instructions, email_new_reviews, email_daily_summary, email_weekly_report')
       .eq('id', user.id)
       .single()
 
     if (!userData) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      // First time user - create their row and an organization
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .insert({ name: user.email?.split('@')[0] || 'My Business' })
+        .select('id')
+        .single()
+
+      if (orgError || !org) {
+        console.error('Org creation error:', orgError)
+        return NextResponse.json({ error: 'Failed to create organization' }, { status: 500 })
+      }
+
+      const { error: userInsertError } = await supabase
+        .from('users')
+        .insert({ id: user.id, organization_id: org.id })
+
+      if (userInsertError) {
+        console.error('User creation error:', userInsertError)
+        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+      }
+
+      userData = { organization_id: org.id, tone: 'Professional & Friendly', custom_instructions: null, email_new_reviews: true, email_daily_summary: true, email_weekly_report: false }
     }
 
     const { data: org } = await supabase
@@ -77,14 +98,35 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json()
 
-    const { data: userData } = await supabase
+    let { data: userData } = await supabase
       .from('users')
       .select('organization_id')
       .eq('id', user.id)
       .single()
 
     if (!userData) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      // First time user - create their row and an organization
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .insert({ name: user.email?.split('@')[0] || 'My Business' })
+        .select('id')
+        .single()
+
+      if (orgError || !org) {
+        console.error('Org creation error:', orgError)
+        return NextResponse.json({ error: 'Failed to create organization' }, { status: 500 })
+      }
+
+      const { error: userInsertError } = await supabase
+        .from('users')
+        .insert({ id: user.id, organization_id: org.id })
+
+      if (userInsertError) {
+        console.error('User creation error:', userInsertError)
+        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+      }
+
+      userData = { organization_id: org.id }
     }
 
     if (body.name !== undefined || body.website !== undefined || body.address !== undefined) {
