@@ -37,6 +37,37 @@ export default function SettingsPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setMessage("Not signed in - try refreshing the page"); return }
 
+      // Ensure user row exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', session.user.id)
+        .single()
+
+      if (!existingUser) {
+        // Create organization first
+        const { data: org, error: orgErr } = await supabase
+          .from('organizations')
+          .insert({ name: session.user.email?.split('@')[0] || 'My Business' })
+          .select('id')
+          .single()
+
+        if (orgErr || !org) {
+          setMessage("Setup error: " + (orgErr?.message || "Could not create organization"))
+          return
+        }
+
+        // Create user row
+        const { error: userErr } = await supabase
+          .from('users')
+          .insert({ id: session.user.id, organization_id: org.id })
+
+        if (userErr) {
+          setMessage("Setup error: " + userErr.message)
+          return
+        }
+      }
+
       const res = await fetch("/api/settings/profile", {
         method: "PUT",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
