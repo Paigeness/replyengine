@@ -3,18 +3,15 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
-let _admin: ReturnType<typeof createClient> | null = null
-
-function getAdmin() {
-  if (!_admin) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!url || !key) {
-      throw new Error('Supabase env vars not configured')
-    }
-    _admin = createClient(url, key)
+function getClient(token: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) {
+    throw new Error('Supabase env vars not configured')
   }
-  return _admin
+  return createClient(url, key, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  })
 }
 
 export async function GET(req: NextRequest) {
@@ -25,8 +22,8 @@ export async function GET(req: NextRequest) {
     }
     
     const token = authHeader.replace('Bearer ', '')
-    const supabase = getAdmin()
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    const supabase = getClient(token)
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -60,7 +57,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('Settings GET error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -72,8 +69,8 @@ export async function PUT(req: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const supabase = getAdmin()
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    const supabase = getClient(token)
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -129,6 +126,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error('Settings PUT error:', err)
-    return NextResponse.json({ error: err.message || 'Internal server error', detail: String(err) }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 })
   }
 }
