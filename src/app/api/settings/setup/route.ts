@@ -12,16 +12,16 @@ export async function POST(req: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '')
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     if (!url || !key) {
       return NextResponse.json({ error: 'Supabase env vars not configured' }, { status: 500 })
     }
 
-    // Use service role key to bypass RLS
-    const supabase = createClient(url, key)
+    const supabase = createClient(url, key, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
 
-    // Verify the user's JWT is valid
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -37,29 +37,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, message: 'User already exists' })
     }
 
-    // Create organization (service role bypasses RLS)
-    const { data: org, error: orgErr } = await supabase
-      .from('organizations')
-      .insert({ name: user.email?.split('@')[0] || 'My Business' })
-      .select('id')
-      .single()
+    // Call the database function (bypasses RLS via SECURITY DEFINER)
+    const { data: result, error: rpcError } = await supabase
+      .rpc('setup_user', { user_id: user.id, user_email: user.email || '' })
 
-    if (orgErr) {
-      console.error('Org create error:', orgErr)
-      return NextResponse.json({ error: 'Failed to create org: ' + orgErr.message }, { status: 500 })
+    if (rpcError) {
+      console.error('Setup RPC error:', rpcError)
+      return NextResponse.json({ error: 'Setup failed: ' + rpcError.message }, { status: 500 })
     }
 
-    // Create user row
-    const { error: userErr } = await supabase
-      .from('users')
-      .insert({ id: user.id, organization_id: org.id })
-
-    if (userErr) {
-      console.error('User create error:', userErr)
-      return NextResponse.json({ error: 'Failed to create user: ' + userErr.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, result })
   } catch (err: any) {
     console.error('Setup error:', err)
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 })
