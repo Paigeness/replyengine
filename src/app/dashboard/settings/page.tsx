@@ -37,52 +37,52 @@ export default function SettingsPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setMessage("Not signed in - try refreshing the page"); return }
 
-      // Ensure user row exists
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', session.user.id)
-        .single()
-
-      if (!existingUser) {
-        // Create organization first
-        const { data: org, error: orgErr } = await supabase
-          .from('organizations')
-          .insert({ name: session.user.email?.split('@')[0] || 'My Business' })
-          .select('id')
-          .single()
-
-        if (orgErr || !org) {
-          setMessage("Setup error: " + (orgErr?.message || "Could not create organization"))
-          return
-        }
-
-        // Create user row
-        const { error: userErr } = await supabase
-          .from('users')
-          .insert({ id: session.user.id, organization_id: org.id })
-
-        if (userErr) {
-          setMessage("Setup error: " + userErr.message)
-          return
-        }
-      }
-
       const res = await fetch("/api/settings/profile", {
         method: "PUT",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ name: businessName, website, address })
       })
+      
       if (res.ok) {
         setMessage("Business profile saved!")
-      } else {
-        const text = await res.text()
-        try {
-          const err = JSON.parse(text)
-          setMessage(err.error || "Error: " + res.status)
-        } catch {
-          setMessage("Server error (" + res.status + "): " + text.substring(0, 200))
+        loadSettings()
+        return
+      }
+      
+      const text = await res.text()
+      let errMsg: string
+      try {
+        const err = JSON.parse(text)
+        errMsg = err.error || "Error: " + res.status
+      } catch {
+        errMsg = "Server error (" + res.status + "): " + text.substring(0, 200)
+      }
+      
+      if (errMsg === "User not found" || errMsg.includes("Failed to create")) {
+        setMessage("Setting up your account...")
+        const setupRes = await fetch("/api/settings/setup", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }
+        })
+        const setupData = await setupRes.json()
+        if (setupRes.ok) {
+          const retryRes = await fetch("/api/settings/profile", {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ name: businessName, website, address })
+          })
+          if (retryRes.ok) {
+            setMessage("Business profile saved!")
+            loadSettings()
+          } else {
+            const retryText = await retryRes.text()
+            setMessage("Error after setup: " + retryText.substring(0, 200))
+          }
+        } else {
+          setMessage("Setup error: " + (setupData.error || "Unknown"))
         }
+      } else {
+        setMessage(errMsg)
       }
     } catch (e: any) {
       setMessage("Error: " + (e.message || "Unknown error"))
@@ -119,19 +119,6 @@ export default function SettingsPage() {
         >
           Save Changes
         </button>
-      </div>
-
-      <div className="border rounded-lg p-6 space-y-4">
-        <h2 className="text-xl font-semibold">Response Tone</h2>
-        <div>
-          <label className="block text-sm font-medium mb-1">Tone</label>
-          <select className="w-full border rounded-md p-2" value={tone} onChange={e => setTone(e.target.value)}>
-            <option>Professional & Friendly</option>
-            <option>Casual & Energetic</option>
-            <option>Formal & Concise</option>
-            <option>Empathetic & Warm</option>
-          </select>
-        </div>
       </div>
     </div>
   )
