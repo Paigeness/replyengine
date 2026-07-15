@@ -12,16 +12,16 @@ export async function POST(req: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '')
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !key) {
       return NextResponse.json({ error: 'Supabase env vars not configured' }, { status: 500 })
     }
 
-    const supabase = createClient(url, key, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
-    })
+    // Use service role key to bypass RLS
+    const supabase = createClient(url, key)
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    // Verify the user's JWT is valid
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, message: 'User already exists' })
     }
 
-    // Create organization
+    // Create organization (service role bypasses RLS)
     const { data: org, error: orgErr } = await supabase
       .from('organizations')
       .insert({ name: user.email?.split('@')[0] || 'My Business' })
