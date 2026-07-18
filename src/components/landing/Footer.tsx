@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { FadeIn } from "./Animations"
-import { Facebook, Twitter, Instagram, Linkedin, MessageSquare } from "lucide-react"
+import { Globe, Send, Camera, Users, MessageSquare } from "lucide-react"
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
@@ -23,16 +23,16 @@ export default function Footer() {
             </p>
             <div className="flex gap-4">
               <Link href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-                <Facebook className="w-5 h-5" />
+                <Globe className="w-5 h-5" />
               </Link>
               <Link href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-                <Twitter className="w-5 h-5" />
+                <Send className="w-5 h-5" />
               </Link>
               <Link href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-                <Instagram className="w-5 h-5" />
+                <Camera className="w-5 h-5" />
               </Link>
               <Link href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-                <Linkedin className="w-5 h-5" />
+                <Users className="w-5 h-5" />
               </Link>
             </div>
           </div>
